@@ -6,7 +6,7 @@ import { AnyElement, DrawingDocument } from "./types";
 export function exportSVG(doc: DrawingDocument, width: number = 1200, height: number = 900): string {
   const parts: string[] = [];
   parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`);
-  parts.push(`<rect width="${width}" height="${height}" fill="white"/>`);
+  parts.push(`<rect width="${width}" height="${height}" fill="${doc.pageColor ?? "#f8fafc"}"/>`);
 
   for (const el of doc.elements) {
     parts.push(elementToSVG(el));

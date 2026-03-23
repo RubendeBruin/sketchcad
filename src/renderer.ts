@@ -172,9 +172,29 @@ export function renderElement(
     case "arrow": {
       const p1 = w2s(el.x1, el.y1);
       const p2 = w2s(el.x2, el.y2);
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const len = Math.hypot(dx, dy);
+
+      // Keep the stem from bleeding through while allowing a tiny overlap with the head.
+      const headSize = Math.max(8, el.strokeWidth * zoom * 4);
+      const stemOverlapFactor = 0.9;
+      const trimStart = el.arrowStart ? headSize * stemOverlapFactor : 0;
+      const trimEnd = el.arrowEnd ? headSize * stemOverlapFactor : 0;
+      const maxTrim = Math.max(0, len - 1);
+      const safeTrimStart = Math.min(trimStart, maxTrim);
+      const safeTrimEnd = Math.min(trimEnd, Math.max(0, len - safeTrimStart - 1));
+
+      const startT = len > 0 ? safeTrimStart / len : 0;
+      const endT = len > 0 ? 1 - safeTrimEnd / len : 1;
+      const stemStartX = p1.x + dx * startT;
+      const stemStartY = p1.y + dy * startT;
+      const stemEndX = p1.x + dx * endT;
+      const stemEndY = p1.y + dy * endT;
+
       ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
+      ctx.moveTo(stemStartX, stemStartY);
+      ctx.lineTo(stemEndX, stemEndY);
       ctx.stroke();
       if (el.arrowEnd) drawArrowhead(ctx, p1.x, p1.y, p2.x, p2.y, el.strokeColor, el.strokeWidth * zoom);
       if (el.arrowStart) drawArrowhead(ctx, p2.x, p2.y, p1.x, p1.y, el.strokeColor, el.strokeWidth * zoom);
