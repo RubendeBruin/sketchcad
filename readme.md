@@ -2,7 +2,7 @@
 
 Sketchcad is an application that helps you to easily sketch CAD like drawings or markup existing images with cad symbols.
 
-It works very much like draw.io or drawing shaps in powerpoint so the learning curve is minimal.
+It works very much like draw.io or drawing shapes in powerpoint so the learning curve is minimal.
 
 It features common cad elements such as:
 - infinite horizontal lines
