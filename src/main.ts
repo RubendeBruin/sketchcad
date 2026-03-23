@@ -1,6 +1,8 @@
 import "./style.css";
 import { AppState, defaultBase } from "./state";
 import { AnyElement, AnnotationElement, MeasurementElement, AngleMeasurementElement } from "./types";
+import { save as tauriSave, open as tauriOpen } from "@tauri-apps/plugin-dialog";
+import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import {
   renderGrid,
   renderElement,
@@ -1488,75 +1490,69 @@ function newFile() {
   updateTitle();
 }
 
-function openFile() {
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = ".skcad,application/json";
-  input.onchange = () => {
-    const file = input.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const doc = deserializeDocument(ev.target?.result as string);
-        appState.loadDocument(doc);
-        currentFilePath = file.name;
-        isDirty = false;
-        // Re-load images from data URLs
-        for (const el of appState.elements) {
-          if (el.type === "image") {
-            const img = new Image();
-            img.src = el.src;
-            imageCache.set(el.id, img);
-          }
-        }
-        render();
-        updateTitle();
-      } catch (err) {
-        alert("Failed to open file: " + (err as Error).message);
+async function openFile() {
+  const selected = await tauriOpen({
+    multiple: false,
+    filters: [{ name: "SketchCAD", extensions: ["skcad"] }],
+  });
+  if (!selected) return;
+  const path = typeof selected === "string" ? selected : selected[0];
+  try {
+    const text = await readTextFile(path);
+    const doc = deserializeDocument(text);
+    appState.loadDocument(doc);
+    currentFilePath = path;
+    isDirty = false;
+    for (const el of appState.elements) {
+      if (el.type === "image") {
+        const img = new Image();
+        img.src = el.src;
+        imageCache.set(el.id, img);
       }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
+    }
+    render();
+    updateTitle();
+  } catch (err) {
+    alert("Failed to open file: " + (err as Error).message);
+  }
 }
 
-function saveFile() {
+async function saveFile() {
   if (!currentFilePath) {
-    saveFileAs();
+    await saveFileAs();
     return;
   }
-  doSave(currentFilePath);
+  await doSave(currentFilePath);
 }
 
-function saveFileAs() {
+async function saveFileAs() {
+  const defaultName = (currentFilePath?.replace(/\.skcad$/, "").split(/[\\/]/).pop() ?? "drawing") + ".skcad";
+  const path = await tauriSave({
+    defaultPath: defaultName,
+    filters: [{ name: "SketchCAD", extensions: ["skcad"] }],
+  });
+  if (!path) return;
+  await doSave(path);
+}
+
+async function doSave(path: string) {
   const json = serializeDocument(appState.toDocument());
-  const blob = new Blob([json], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = (currentFilePath?.replace(/\.skcad$/, "") ?? "drawing") + ".skcad";
-  a.click();
-  URL.revokeObjectURL(url);
+  await writeTextFile(path, json);
+  currentFilePath = path;
   isDirty = false;
   updateTitle();
 }
 
-function doSave(_path: string) {
-  // In a pure web context we trigger download; in Tauri we'd use file API
-  saveFileAs();
-}
-
-function doExportSVG() {
+async function doExportSVG() {
   const { w, h } = canvasCssSize();
   const svg = exportSVG(appState.toDocument(), w, h);
-  const blob = new Blob([svg], { type: "image/svg+xml" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "drawing.svg";
-  a.click();
-  URL.revokeObjectURL(url);
+  const defaultName = (currentFilePath?.replace(/\.skcad$/, "").split(/[\\/]/).pop() ?? "drawing") + ".svg";
+  const path = await tauriSave({
+    defaultPath: defaultName,
+    filters: [{ name: "SVG Image", extensions: ["svg"] }],
+  });
+  if (!path) return;
+  await writeTextFile(path, svg);
 }
 
 function doExportPDF() {
