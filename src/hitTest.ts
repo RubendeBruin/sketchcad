@@ -107,9 +107,34 @@ export function hitTestElement(
     case "image": {
       return wx >= el.x && wx <= el.x + el.width && wy >= el.y && wy <= el.y + el.height;
     }
-    default:
+    case "spline": {
+      const pts = el.points;
+      if (!pts || pts.length < 2) return false;
+      const n = pts.length;
+      for (let i = 0; i < n - 1; i++) {
+        const prev = i > 0 ? pts[i - 1] : { x: 2 * pts[0].x - pts[1].x, y: 2 * pts[0].y - pts[1].y };
+        const p1 = pts[i];
+        const p2 = pts[i + 1];
+        const next = i < n - 2 ? pts[i + 2] : { x: 2 * pts[n - 1].x - pts[n - 2].x, y: 2 * pts[n - 1].y - pts[n - 2].y };
+        const cp1x = p1.x + (p2.x - prev.x) / 6;
+        const cp1y = p1.y + (p2.y - prev.y) / 6;
+        const cp2x = p2.x - (next.x - p1.x) / 6;
+        const cp2y = p2.y - (next.y - p1.y) / 6;
+        let lastX = p1.x, lastY = p1.y;
+        const STEPS = 12;
+        for (let s = 1; s <= STEPS; s++) {
+          const t = s / STEPS;
+          const mt = 1 - t;
+          const nx = mt*mt*mt*p1.x + 3*mt*mt*t*cp1x + 3*mt*t*t*cp2x + t*t*t*p2.x;
+          const ny = mt*mt*mt*p1.y + 3*mt*mt*t*cp1y + 3*mt*t*t*cp2y + t*t*t*p2.y;
+          if (distToSegment(wx, wy, lastX, lastY, nx, ny) < threshold) return true;
+          lastX = nx; lastY = ny;
+        }
+      }
       return false;
+    }
   }
+  return false;
 }
 
 function distToSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
@@ -226,6 +251,15 @@ export function getHandles(el: AnyElement): Handle[] {
         { id: "bl", x: el.x, y: el.y + el.height, cursor: "nesw-resize" },
         { id: "br", x: el.x + el.width, y: el.y + el.height, cursor: "nwse-resize" },
       ];
+    case "spline": {
+      if (!el.points) return [];
+      return el.points.map((p, i) => ({
+        id: `p${i}`,
+        x: p.x,
+        y: p.y,
+        cursor: "crosshair",
+      }));
+    }
     default:
       return [];
   }
@@ -309,6 +343,14 @@ export function applyHandleDrag(
       return applyRectHandle(el, handleId, newX, newY);
     case "image":
       return applyImageHandle(el, handleId, newX, newY);
+    case "spline": {
+      const idx = parseInt(handleId.slice(1), 10);
+      if (isNaN(idx)) break;
+      const newPoints = el.points.map((p, i) =>
+        i === idx ? { x: newX, y: newY } : { ...p }
+      );
+      return { points: newPoints } as Partial<AnyElement>;
+    }
   }
   return {};
 }

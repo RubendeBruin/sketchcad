@@ -122,6 +122,11 @@ export class AppState {
           e.x += dx; e.y += dy;
           break;
         }
+        case "spline": {
+          const e = el as any;
+          e.points = e.points.map((p: { x: number; y: number }) => ({ x: p.x + dx, y: p.y + dy }));
+          break;
+        }
       }
     }
   }

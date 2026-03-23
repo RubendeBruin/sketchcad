@@ -215,6 +215,12 @@ export function renderElement(
       }
       break;
     }
+    case "spline": {
+      if (el.points && el.points.length >= 2) {
+        catmullRomOnCanvas(ctx, el.points, panX, panY, zoom);
+      }
+      break;
+    }
   }
 
   ctx.restore();
@@ -577,8 +583,42 @@ export function renderSelectionOverlay(
       ctx.strokeRect(p.x - 3, p.y - 3, el.width * zoom + 6, el.height * zoom + 6);
       break;
     }
+    case "spline": {
+      if ((el as any).points && (el as any).points.length >= 2) {
+        catmullRomOnCanvas(ctx, (el as any).points, panX, panY, zoom);
+      }
+      break;
+    }
     default:
       break;
   }
   ctx.restore();
+}
+
+export function catmullRomOnCanvas(
+  ctx: CanvasRenderingContext2D,
+  points: { x: number; y: number }[],
+  panX: number,
+  panY: number,
+  zoom: number
+) {
+  const n = points.length;
+  if (n < 2) return;
+  function w2s(wx: number, wy: number) {
+    return worldToScreen(wx, wy, panX, panY, zoom);
+  }
+  const p0s = w2s(points[0].x, points[0].y);
+  ctx.beginPath();
+  ctx.moveTo(p0s.x, p0s.y);
+  for (let i = 0; i < n - 1; i++) {
+    const prev = i > 0 ? points[i - 1] : { x: 2 * points[0].x - points[1].x, y: 2 * points[0].y - points[1].y };
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const next = i < n - 2 ? points[i + 2] : { x: 2 * points[n - 1].x - points[n - 2].x, y: 2 * points[n - 1].y - points[n - 2].y };
+    const cp1 = w2s(p1.x + (p2.x - prev.x) / 6, p1.y + (p2.y - prev.y) / 6);
+    const cp2 = w2s(p2.x - (next.x - p1.x) / 6, p2.y - (next.y - p1.y) / 6);
+    const p2s = w2s(p2.x, p2.y);
+    ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, p2s.x, p2s.y);
+  }
+  ctx.stroke();
 }

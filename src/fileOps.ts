@@ -74,6 +74,23 @@ function elementToSVG(el: AnyElement): string {
       return `<rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" ${baseAttrs} fill="${fill}"/>`;
     case "image":
       return `<image x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" href="${el.src}" opacity="${opacity}"/>`;
+    case "spline": {
+      if (!el.points || el.points.length < 2) return "";
+      const n = el.points.length;
+      const pathParts = [`M ${el.points[0].x} ${el.points[0].y}`];
+      for (let i = 0; i < n - 1; i++) {
+        const prev = i > 0 ? el.points[i - 1] : { x: 2 * el.points[0].x - el.points[1].x, y: 2 * el.points[0].y - el.points[1].y };
+        const p1 = el.points[i];
+        const p2 = el.points[i + 1];
+        const next = i < n - 2 ? el.points[i + 2] : { x: 2 * el.points[n - 1].x - el.points[n - 2].x, y: 2 * el.points[n - 1].y - el.points[n - 2].y };
+        const cp1x = p1.x + (p2.x - prev.x) / 6;
+        const cp1y = p1.y + (p2.y - prev.y) / 6;
+        const cp2x = p2.x - (next.x - p1.x) / 6;
+        const cp2y = p2.y - (next.y - p1.y) / 6;
+        pathParts.push(`C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${p2.x} ${p2.y}`);
+      }
+      return `<path d="${pathParts.join(" ")}" ${baseAttrs} fill="none"/>`;
+    }
     default:
       return "";
   }

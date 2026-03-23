@@ -67,6 +67,9 @@ export function snapPoint(
         trySnap(el.x, el.y + el.height / 2, "midpoint");
         trySnap(el.x + el.width, el.y + el.height / 2, "midpoint");
         break;
+      case "spline":
+        for (const p of el.points) trySnap(p.x, p.y, "endpoint");
+        break;
     }
   }
 

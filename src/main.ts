@@ -1,6 +1,6 @@
 import "./style.css";
 import { AppState, defaultBase } from "./state";
-import { AnyElement, AnnotationElement, MeasurementElement, AngleMeasurementElement } from "./types";
+import { AnyElement, AnnotationElement, MeasurementElement, AngleMeasurementElement, Point } from "./types";
 import { save as tauriSave, open as tauriOpen } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import {
@@ -21,7 +21,7 @@ import { exportSVG, serializeDocument, deserializeDocument } from "./fileOps";
 // ────────────────────────────────────────────────────
 type Tool =
   | "select"
-  | "hline" | "vline" | "line" | "circle" | "arc"
+  | "hline" | "vline" | "line" | "circle" | "arc" | "spline"
   | "measurement" | "anglemeasurement" | "point" | "annotation" | "arrow"
   | "viewsymbol" | "rect" | "image";
 
@@ -33,6 +33,7 @@ interface DrawState {
   x2?: number; y2?: number;
   cx?: number; cy?: number;
   r?: number;
+  pts?: Point[]; // accumulated control points for spline
   previewEl?: AnyElement;
 }
 
@@ -140,6 +141,9 @@ appEl.innerHTML = `
         </button>
         <button class="tool-btn" data-tool="arc" title="Arc (A)">
           <svg viewBox="0 0 24 24"><path d="M 4 20 A 12 12 0 0 1 20 4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+        <button class="tool-btn" data-tool="spline" title="Spline (B)">
+          <svg viewBox="0 0 24 24"><path d="M 4 18 C 6 6, 10 4, 12 12 S 18 20, 20 8" fill="none" stroke="currentColor" stroke-width="2"/></svg>
         </button>
       </div>
       <div class="palette-section">
@@ -398,7 +402,7 @@ function render() {
 // Input handling
 // ────────────────────────────────────────────────────
 function getSnap(e: MouseEvent): SnapResult {
-  if (!snapEnabled) {
+  if (!snapEnabled || e.altKey) {
     const w = screenToWorld(e.offsetX, e.offsetY, appState.panX, appState.panY, appState.zoom);
     return { ...w, snapped: false };
   }
@@ -545,6 +549,25 @@ function onContextMenu(e: MouseEvent) {
 }
 
 function onDblClick(e: MouseEvent) {
+  // Finalize spline drawing on double-click
+  if (activeTool === "spline" && drawState.active && drawState.pts) {
+    const pts = drawState.pts.slice(0, -1); // remove duplicate point from 2nd mousedown of dblclick
+    if (pts.length >= 2) {
+      appState.addElement({
+        ...defaultBase("spline"),
+        type: "spline" as const,
+        points: pts,
+        strokeColor: propStrokeColor,
+        strokeWidth: propStrokeWidth,
+        opacity: 1,
+      } as AnyElement);
+      markDirty();
+    }
+    drawState = { active: false, phase: 0 };
+    render();
+    return;
+  }
+
   // Double click on annotation - start editing
   for (let i = appState.elements.length - 1; i >= 0; i--) {
     const el = appState.elements[i];
@@ -805,6 +828,13 @@ function handleDrawMouseDown(e: MouseEvent, snap: SnapResult) {
     case "image":
       pickImageFile(snap.x, snap.y);
       break;
+    case "spline":
+      if (!drawState.active) {
+        drawState = { active: true, phase: 1, pts: [{ x: wx, y: wy }] };
+      } else {
+        drawState = { ...drawState, phase: drawState.phase + 1, pts: [...(drawState.pts ?? []), { x: wx, y: wy }] };
+      }
+      break;
   }
 }
 
@@ -871,6 +901,15 @@ function updateDrawPreview(snap: SnapResult) {
           radius: drawState.r!,
           text: "?", unit: "°",
           strokeColor: propStrokeColor, strokeWidth: propStrokeWidth, opacity: 0.7,
+        } as AnyElement;
+      }
+      break;
+    case "spline":
+      if (drawState.pts && drawState.pts.length >= 1) {
+        drawState.previewEl = {
+          ...defaultBase("spline"),
+          points: [...drawState.pts, { x: wx, y: wy }],
+          strokeColor: propStrokeColor, strokeWidth: propStrokeWidth, opacity: 0.6,
         } as AnyElement;
       }
       break;
@@ -1166,12 +1205,16 @@ function getCursorForTool(): string {
 // Keyboard shortcuts
 // ────────────────────────────────────────────────────
 document.addEventListener("keydown", (e) => {
+  // Prevent Alt from activating the window menu bar (which would steal mouse focus
+  // from the canvas and stop mousemove events from arriving after Alt is released).
+  if (e.key === "Alt") { e.preventDefault(); return; }
+
   const tag = (e.target as HTMLElement).tagName;
   if (tag === "INPUT" || tag === "TEXTAREA") return;
 
   // Cancel draw
   if (e.key === "Escape") {
-    drawState = { active: false, phase: 0 };
+    setActiveTool("select");
     appState.deselectAll();
     render();
     return;
@@ -1215,6 +1258,7 @@ document.addEventListener("keydown", (e) => {
     "k": "viewsymbol",
     "r": "rect",
     "i": "image",
+    "b": "spline",
   };
   if (toolKeys[e.key]) {
     setActiveTool(toolKeys[e.key]);
@@ -1232,6 +1276,14 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "ArrowRight") { appState.snapshot(); appState.moveSelected(NUDGE, 0); markDirty(); render(); e.preventDefault(); }
   if (e.key === "ArrowUp") { appState.snapshot(); appState.moveSelected(0, -NUDGE); markDirty(); render(); e.preventDefault(); }
   if (e.key === "ArrowDown") { appState.snapshot(); appState.moveSelected(0, NUDGE); markDirty(); render(); e.preventDefault(); }
+});
+
+document.addEventListener("keyup", (e) => {
+  // When Alt is released, force a re-render so the snap indicator and preview
+  // update immediately (the canvas may not receive a mousemove right away).
+  if (e.key === "Alt") {
+    render();
+  }
 });
 
 // ────────────────────────────────────────────────────

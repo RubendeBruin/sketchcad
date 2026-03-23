@@ -5,6 +5,7 @@ export type ElementType =
   | "line"              // line segment
   | "circle"
   | "arc"
+  | "spline"            // Catmull-Rom spline through control points
   | "measurement"
   | "anglemeasurement"  // angle between two lines at a vertex
   | "point"
@@ -133,6 +134,11 @@ export interface ImageElement extends BaseElement {
   src: string; // data URL
 }
 
+export interface SplineElement extends BaseElement {
+  type: "spline";
+  points: Point[]; // Catmull-Rom control points in world coords
+}
+
 export interface AngleMeasurementElement extends BaseElement {
   type: "anglemeasurement";
   cx: number;     // vertex world coords (intersection point)
@@ -152,6 +158,7 @@ export type AnyElement =
   | LineElement
   | CircleElement
   | ArcElement
+  | SplineElement
   | MeasurementElement
   | AngleMeasurementElement
   | PointElement
