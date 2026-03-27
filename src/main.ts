@@ -1235,7 +1235,7 @@ document.addEventListener("keydown", (e) => {
       case "a": appState.selectAll(); render(); e.preventDefault(); break;
       case "d": duplicateSelected(); render(); e.preventDefault(); break;
       case "c": copySelected(); e.preventDefault(); break;
-      case "v": pasteElements(); render(); e.preventDefault(); break;
+      case "v": if (elementClipboard.length > 0) { pasteElements(); render(); e.preventDefault(); } break;
       case "s": e.preventDefault(); saveFile(); break;
       case "o": e.preventDefault(); openFile(); break;
       case "n": e.preventDefault(); newFile(); break;
