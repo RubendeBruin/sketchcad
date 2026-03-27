@@ -60,8 +60,8 @@ let isDirty = false;
 // Images cache for image elements
 const imageCache = new Map<string, HTMLImageElement>();
 
-// Internal element clipboard (Ctrl+C / Ctrl+V)
-let elementClipboard: AnyElement[] = [];
+// Clipboard marker used to identify SketchCAD shape data in the system clipboard
+const CLIPBOARD_MARKER = "sketchcad-elements";
 
 // Property panel state
 let propStrokeColor = "#1e293b";
@@ -1185,7 +1185,7 @@ document.addEventListener("paste", (e: ClipboardEvent) => {
   const items = e.clipboardData?.items;
   if (!items) return;
 
-  // Only handle image items — element paste (Ctrl+V) is handled by the keydown handler
+  // Check for image data first
   for (const item of Array.from(items)) {
     if (item.type.startsWith("image/")) {
       const file = item.getAsFile();
@@ -1194,15 +1194,28 @@ document.addEventListener("paste", (e: ClipboardEvent) => {
       const reader = new FileReader();
       reader.onload = (ev) => {
         const src = ev.target?.result as string;
-        // Place the image near the current viewport centre
         const { w, h } = canvasCssSize();
         const cx = (w / 2 - appState.panX) / appState.zoom;
         const cy = (h / 2 - appState.panY) / appState.zoom;
         insertImageFromDataUrl(src, cx, cy);
       };
       reader.readAsDataURL(file);
-      break; // only handle the first image item
+      return;
     }
+  }
+
+  // Check for SketchCAD shape data in plain text
+  const text = e.clipboardData?.getData("text/plain");
+  if (text) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed._marker === CLIPBOARD_MARKER && Array.isArray(parsed.elements)) {
+        e.preventDefault();
+        pasteElements(parsed.elements as AnyElement[]);
+        render();
+        return;
+      }
+    } catch { /* not our JSON, ignore */ }
   }
 });
 
@@ -1264,7 +1277,7 @@ document.addEventListener("keydown", (e) => {
       case "a": appState.selectAll(); render(); e.preventDefault(); break;
       case "d": duplicateSelected(); render(); e.preventDefault(); break;
       case "c": copySelected(); e.preventDefault(); break;
-      case "v": if (elementClipboard.length > 0) { pasteElements(); render(); e.preventDefault(); } break;
+      case "v": /* handled entirely by the paste event listener */ break;
       case "s": e.preventDefault(); saveFile(); break;
       case "o": e.preventDefault(); openFile(); break;
       case "n": e.preventDefault(); newFile(); break;
@@ -1709,15 +1722,15 @@ function duplicateSelected() {
 function copySelected() {
   const selected = appState.getSelected();
   if (selected.length === 0) return;
-  // Deep-clone without offset so paste places them at a predictable +20/+20 offset
-  elementClipboard = selected.map((el) => ({ ...el }));
+  const payload = JSON.stringify({ _marker: CLIPBOARD_MARKER, elements: selected });
+  navigator.clipboard.writeText(payload).catch(() => {});
 }
 
-function pasteElements() {
-  if (elementClipboard.length === 0) return;
+function pasteElements(source: AnyElement[]) {
+  if (source.length === 0) return;
   appState.snapshot();
   appState.deselectAll();
-  const copies = elementClipboard.map((el) => {
+  const copies = source.map((el) => {
     const copy: any = { ...el, id: Math.random().toString(36).slice(2, 10), selected: true };
     // Offset pasted copies by 20 world units so they're visibly separate
     if (copy.type === "hline") { copy.y += 20; }
@@ -1734,8 +1747,9 @@ function pasteElements() {
     return copy as AnyElement;
   });
   for (const c of copies) appState.elements.push(c);
-  // Update clipboard to the pasted copies so repeated Ctrl+V keeps stepping forward
-  elementClipboard = copies.map((el) => ({ ...el }));
+  // Write back the offset copies so repeated Ctrl+V keeps stepping forward
+  const payload = JSON.stringify({ _marker: CLIPBOARD_MARKER, elements: copies });
+  navigator.clipboard.writeText(payload).catch(() => {});
   markDirty();
 }
 
