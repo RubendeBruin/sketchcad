@@ -8,6 +8,7 @@ export class AppState {
   panX: number = 0;
   panY: number = 0;
   zoom: number = 1;
+  pageColor: string = "#f8fafc";
 
   private history: HistoryEntry[] = [];
   private historyIndex: number = -1;
@@ -135,6 +136,7 @@ export class AppState {
     return {
       version: "1.0",
       elements: this.cloneElements(),
+      pageColor: this.pageColor,
       viewport: { panX: this.panX, panY: this.panY, zoom: this.zoom },
     };
   }
@@ -144,6 +146,7 @@ export class AppState {
     this.panX = doc.viewport?.panX ?? 0;
     this.panY = doc.viewport?.panY ?? 0;
     this.zoom = doc.viewport?.zoom ?? 1;
+    this.pageColor = doc.pageColor ?? "#f8fafc";
     this.history = [];
     this.historyIndex = -1;
     this.snapshot();

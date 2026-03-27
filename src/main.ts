@@ -69,6 +69,8 @@ let propStrokeWidth = 1.5;
 let propFontSize = 14;
 let propFontFamily = "sans-serif";
 
+const PAGE_COLOR_PRESETS = ["#ffffff", "#f8fafc", "#f1f5f9", "#e2e8f0", "#111827"];
+
 // ────────────────────────────────────────────────────
 // Init DOM
 // ────────────────────────────────────────────────────
@@ -106,6 +108,8 @@ appEl.innerHTML = `
         <div class="menu-sep"></div>
         <div class="menu-action" data-action="toggle-grid">Toggle Grid</div>
         <div class="menu-action" data-action="toggle-snap">Toggle Snap</div>
+        <div class="menu-sep"></div>
+        <div class="menu-action" data-action="page-properties">Page Properties…</div>
       </div>
     </div>
     <div class="menubar-status" id="status-bar">Ready</div>
@@ -306,6 +310,31 @@ appEl.innerHTML = `
       </div>
     </div>
   </div>
+
+  <!-- Page properties dialog -->
+  <div id="page-properties-dialog" class="dialog-overlay" style="display:none">
+    <div class="dialog-box">
+      <div class="dialog-title">Page Properties</div>
+      <div class="dialog-row">
+        <label>Page Color</label>
+        <select id="page-prop-color">
+          <option value="#ffffff">White</option>
+          <option value="#f8fafc">Off White</option>
+          <option value="#f1f5f9">Slate Light</option>
+          <option value="#e2e8f0">Slate</option>
+          <option value="#111827">Near Black</option>
+          <option value="custom">Custom…</option>
+        </select>
+      </div>
+      <div class="dialog-row">
+        <label>Custom</label>
+        <input type="color" id="page-prop-color-custom" value="#f8fafc"/>
+      </div>
+      <div class="dialog-buttons">
+        <button id="page-prop-close">Close</button>
+      </div>
+    </div>
+  </div>
 </div>
 `;
 
@@ -354,7 +383,7 @@ function render() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   ctx.clearRect(0, 0, cssW, cssH);
-  ctx.fillStyle = "#f8fafc";
+  ctx.fillStyle = appState.pageColor;
   ctx.fillRect(0, 0, cssW, cssH);
 
   if (showGrid) {
@@ -1338,6 +1367,22 @@ function updatePropertiesPanel() {
   }
 }
 
+function setPageColor(color: string) {
+  if (appState.pageColor === color) return;
+  appState.pageColor = color;
+  markDirty();
+  render();
+}
+
+function syncPageColorControls() {
+  const select = document.getElementById("page-prop-color") as HTMLSelectElement;
+  const custom = document.getElementById("page-prop-color-custom") as HTMLInputElement;
+  const normalized = appState.pageColor.toLowerCase();
+  const preset = PAGE_COLOR_PRESETS.find((c) => c.toLowerCase() === normalized);
+  select.value = preset ?? "custom";
+  custom.value = appState.pageColor;
+}
+
 // Wire up property inputs
 function wirePropertyInput(id: string, onChange: (v: string) => void) {
   document.getElementById(id)?.addEventListener("input", (e) => {
@@ -1399,6 +1444,35 @@ wirePropertyInput("prop-point-style", (v) => {
 wirePropertyInput("prop-point-size", (v) => {
   applyToSelected({ size: parseFloat(v) || 6 });
 });
+
+document.getElementById("page-prop-color")?.addEventListener("change", (e) => {
+  const value = (e.target as HTMLSelectElement).value;
+  if (value === "custom") {
+    const custom = document.getElementById("page-prop-color-custom") as HTMLInputElement;
+    setPageColor(custom.value);
+    return;
+  }
+  setPageColor(value);
+});
+
+document.getElementById("page-prop-color-custom")?.addEventListener("input", (e) => {
+  const value = (e.target as HTMLInputElement).value;
+  const select = document.getElementById("page-prop-color") as HTMLSelectElement;
+  const preset = PAGE_COLOR_PRESETS.find((c) => c.toLowerCase() === value.toLowerCase());
+  select.value = preset ?? "custom";
+  setPageColor(value);
+});
+
+document.getElementById("page-prop-close")?.addEventListener("click", () => {
+  const dialog = document.getElementById("page-properties-dialog")!;
+  dialog.style.display = "none";
+});
+
+function openPagePropertiesDialog() {
+  syncPageColorControls();
+  const dialog = document.getElementById("page-properties-dialog")!;
+  dialog.style.display = "flex";
+}
 
 function applyToSelected(patch: Partial<AnyElement>) {
   const selected = appState.getSelected();
@@ -1508,6 +1582,7 @@ function handleMenuAction(action: string) {
     case "zoom-100": appState.zoom = 1; render(); break;
     case "toggle-grid": showGrid = !showGrid; render(); break;
     case "toggle-snap": snapEnabled = !snapEnabled; break;
+    case "page-properties": openPagePropertiesDialog(); break;
     case "bring-front": bringToFront(); break;
     case "send-back": sendToBack(); break;
   }
@@ -1534,6 +1609,7 @@ function newFile() {
   appState.panX = 0;
   appState.panY = 0;
   appState.zoom = 1;
+  appState.pageColor = "#f8fafc";
   currentFilePath = null;
   isDirty = false;
   imageCache.clear();

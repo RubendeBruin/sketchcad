@@ -171,6 +171,7 @@ export type AnyElement =
 export interface DrawingDocument {
   version: "1.0";
   elements: AnyElement[];
+  pageColor?: string;
   viewport: {
     panX: number;
     panY: number;
