@@ -1052,19 +1052,13 @@ function showMeasurementDialog(pending: MeasurementElement) {
     markDirty();
     render();
     overlay.style.display = "none";
-    ok_btn.removeEventListener("click", ok);
-    cancel_btn.removeEventListener("click", cancel);
   };
   const cancel = () => {
     overlay.style.display = "none";
-    ok_btn.removeEventListener("click", ok);
-    cancel_btn.removeEventListener("click", cancel);
   };
-  const ok_btn = document.getElementById("meas-ok")!;
-  const cancel_btn = document.getElementById("meas-cancel")!;
-  ok_btn.addEventListener("click", ok);
-  cancel_btn.addEventListener("click", cancel);
-  valInput.addEventListener("keydown", (ev) => { if (ev.key === "Enter") ok(); if (ev.key === "Escape") cancel(); });
+  document.getElementById("meas-ok")!.onclick = ok;
+  document.getElementById("meas-cancel")!.onclick = cancel;
+  valInput.onkeydown = (ev) => { if (ev.key === "Enter") ok(); if (ev.key === "Escape") cancel(); };
 }
 
 function startMeasurementEdit(el: MeasurementElement) {
@@ -1086,6 +1080,7 @@ function startMeasurementEdit(el: MeasurementElement) {
   const cancel = () => { overlay.style.display = "none"; };
   document.getElementById("meas-ok")!.onclick = ok;
   document.getElementById("meas-cancel")!.onclick = cancel;
+  valInput.onkeydown = (ev) => { if (ev.key === "Enter") ok(); if (ev.key === "Escape") cancel(); };
 }
 
 // ────────────────────────────────────────────────────
@@ -1107,19 +1102,13 @@ function showAngleMeasurementDialog(pending: AngleMeasurementElement) {
     markDirty();
     render();
     overlay.style.display = "none";
-    ok_btn.removeEventListener("click", ok);
-    cancel_btn.removeEventListener("click", cancel);
   };
   const cancel = () => {
     overlay.style.display = "none";
-    ok_btn.removeEventListener("click", ok);
-    cancel_btn.removeEventListener("click", cancel);
   };
-  const ok_btn = document.getElementById("meas-ok")!;
-  const cancel_btn = document.getElementById("meas-cancel")!;
-  ok_btn.addEventListener("click", ok);
-  cancel_btn.addEventListener("click", cancel);
-  valInput.addEventListener("keydown", (ev) => { if (ev.key === "Enter") ok(); if (ev.key === "Escape") cancel(); });
+  document.getElementById("meas-ok")!.onclick = ok;
+  document.getElementById("meas-cancel")!.onclick = cancel;
+  valInput.onkeydown = (ev) => { if (ev.key === "Enter") ok(); if (ev.key === "Escape") cancel(); };
 }
 
 function startAngleMeasurementEdit(el: AngleMeasurementElement) {
@@ -1141,6 +1130,7 @@ function startAngleMeasurementEdit(el: AngleMeasurementElement) {
   const cancel = () => { overlay.style.display = "none"; };
   document.getElementById("meas-ok")!.onclick = ok;
   document.getElementById("meas-cancel")!.onclick = cancel;
+  valInput.onkeydown = (ev) => { if (ev.key === "Enter") ok(); if (ev.key === "Escape") cancel(); };
 }
 
 // ────────────────────────────────────────────────────
